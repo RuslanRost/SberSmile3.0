@@ -55,13 +55,21 @@ if errorlevel 1 (
   winget install --id Python.Python.3.10 --accept-source-agreements --accept-package-agreements --silent
 )
 
-REM 4) Sync repository (pull latest)
+REM 4) Sync repository (force update, keep config.json)
+set "CFG_BAK=%TEMP%\config.json.bak"
+if exist "config.json" copy /Y "config.json" "%CFG_BAK%" >nul
 if exist ".git" (
-  echo Pulling latest changes...
-  git pull
+  echo Force updating repo...
+  git fetch --all --prune
+  git reset --hard origin/main
 ) else (
-  echo Warning: .git not found, skipping git pull.
+  echo Initializing git and forcing update...
+  git init
+  git remote add origin https://github.com/RuslanRost/SberSmile3.0.git
+  git fetch --all --prune
+  git reset --hard origin/main
 )
+if exist "%CFG_BAK%" copy /Y "%CFG_BAK%" "config.json" >nul
 
 REM 5) Create venv with Python 3.10
 if not exist "venv\Scripts\python.exe" (
