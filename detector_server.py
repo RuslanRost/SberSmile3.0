@@ -82,9 +82,22 @@ def setup_camera_props(cam, resolution):
 
 def open_video_source(source, use_tcp):
     if isinstance(source, str) and source.lower().startswith("rtsp://"):
+        candidates = [source]
         if use_tcp and "rtsp_transport=tcp" not in source:
             sep = "&" if "?" in source else "?"
-            source = f"{source}{sep}rtsp_transport=tcp"
+            candidates.append(f"{source}{sep}rtsp_transport=tcp")
+        if source.endswith("/"):
+            candidates.append(source.rstrip("/"))
+        else:
+            candidates.append(source + "/")
+        for url in candidates:
+            cap = cv.VideoCapture(url, cv.CAP_FFMPEG)
+            if cap.isOpened():
+                print(f"RTSP opened: {url}")
+                return cap
+        print("Failed RTSP URLs:")
+        for url in candidates:
+            print(f"  {url}")
         return cv.VideoCapture(source, cv.CAP_FFMPEG)
     return cv.VideoCapture(source)
 
