@@ -138,8 +138,6 @@ def main():
     cfg = load_config(cfg_path)
     print(f"Working dir: {os.getcwd()}")
     print(f"Config path: {cfg_path}")
-    print(f"camera_url: {cfg['camera_url']}")
-    print(f"log_fps: {log_fps}, fps_interval_sec: {fps_interval_sec}, warmup_frames: {warmup_frames}")
     lip_jaw_ratio_thresh = cfg["lip_jaw_ratio_thresh"]
     mouth_opening_ratio_thresh = cfg["mouth_opening_ratio_thresh"]
     face_center_weight = cfg["face_center_weight"]
@@ -155,6 +153,8 @@ def main():
     warmup_frames = max(0, cfg["warmup_frames"])
     log_fps = cfg["log_fps"]
     fps_interval_sec = max(1.0, cfg["fps_interval_sec"])
+    print(f"camera_url: {cfg['camera_url']}")
+    print(f"log_fps: {log_fps}, fps_interval_sec: {fps_interval_sec}, warmup_frames: {warmup_frames}")
 
     detector = dlib.get_frontal_face_detector()
     predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
