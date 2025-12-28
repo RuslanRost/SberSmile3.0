@@ -183,7 +183,11 @@ def main():
     print(f"Detector listening on {host}:{port}")
 
     latest_frame = None
+    latest_idx = -1
     frame_lock = threading.Lock()
+    stop_event = threading.Event()
+    fps_start = time()
+    fps_frames = 0
 
     def stream_server():
         class Handler(BaseHTTPRequestHandler):
@@ -240,33 +244,47 @@ def main():
         except OSError:
             return False
 
-    frame_idx = 0
-    fps_start = time()
-    fps_frames = 0
     last_smile = False
     debounced_smiling = False
     raw_smile_started_at = None
     raw_not_smile_started_at = None
     smile_started_at = None
     sent_active = False
-    while True:
-        ret, frame = cap.read()
-        if not ret or frame is None:
-            continue
-        if frame.dtype != np.uint8:
-            frame = cv.convertScaleAbs(frame)
-        frame = np.ascontiguousarray(frame, dtype=np.uint8)
-        with frame_lock:
-            latest_frame = frame
 
-        if log_fps:
-            fps_frames += 1
-            now_fps = time()
-            if now_fps - fps_start >= fps_interval_sec:
-                fps = fps_frames / max(1e-6, now_fps - fps_start)
-                print(f"Camera FPS: {fps:.1f}", flush=True)
-                fps_start = now_fps
-                fps_frames = 0
+    def capture_loop():
+        nonlocal latest_frame, latest_idx, fps_start, fps_frames
+        while not stop_event.is_set():
+            ret, frame = cap.read()
+            if not ret or frame is None:
+                sleep(0.002)
+                continue
+            if frame.dtype != np.uint8:
+                frame = cv.convertScaleAbs(frame)
+            frame = np.ascontiguousarray(frame, dtype=np.uint8)
+            with frame_lock:
+                latest_frame = frame
+                latest_idx += 1
+
+            if log_fps:
+                fps_frames += 1
+                now_fps = time()
+                if now_fps - fps_start >= fps_interval_sec:
+                    fps = fps_frames / max(1e-6, now_fps - fps_start)
+                    print(f"Camera FPS: {fps:.1f}", flush=True)
+                    fps_start = now_fps
+                    fps_frames = 0
+
+    threading.Thread(target=capture_loop, daemon=True).start()
+
+    last_processed_idx = -1
+    while True:
+        with frame_lock:
+            frame = None if latest_frame is None else latest_frame.copy()
+            frame_idx = latest_idx
+        if frame is None or frame_idx == last_processed_idx:
+            sleep(0.002)
+            continue
+        last_processed_idx = frame_idx
 
         if warmup_frames > 0:
             warmup_frames -= 1
@@ -339,6 +357,7 @@ def main():
                 }
             last_smile = result["smile"]
             if not send_msg({"cmd": "detect", "data": result}):
+                stop_event.set()
                 break
 
         now = time()
@@ -358,14 +377,14 @@ def main():
                 smile_started_at = now
             elif not sent_active and (now - smile_started_at) >= smile_hold_seconds:
                 if not send_msg({"cmd": "trigger", "ts": now}):
+                    stop_event.set()
                     break
                 sent_active = True
         else:
             smile_started_at = None
             sent_active = False
 
-        frame_idx += 1
-
+    stop_event.set()
     conn.close()
     server.close()
     cap.release()
