@@ -20,6 +20,7 @@ DEFAULT_CONFIG = {
     "trigger_sync_frames": [0, 150, 283, 395, 480, 649, 741, 817, 892, 1025, 1138, 1238],
     "tcp_host": "127.0.0.1",
     "tcp_port": 5005,
+    "rtsp_tcp": True,
 }
 
 
@@ -40,6 +41,7 @@ def load_config(path: Path):
     cfg["trigger_sync_frames"] = [int(x) for x in cfg["trigger_sync_frames"]]
     cfg["tcp_host"] = str(cfg["tcp_host"])
     cfg["tcp_port"] = int(cfg["tcp_port"])
+    cfg["rtsp_tcp"] = bool(cfg["rtsp_tcp"])
     return cfg
 
 
@@ -179,9 +181,10 @@ class VideoPlayerThread:
 
 
 class CameraThread:
-    def __init__(self, source, resolution):
+    def __init__(self, source, resolution, rtsp_tcp):
         self.source = source
         self.resolution = resolution
+        self.rtsp_tcp = rtsp_tcp
         self.cap = None
         self.lock = threading.Lock()
         self.latest_frame = None
@@ -195,7 +198,14 @@ class CameraThread:
         if isinstance(self.source, int):
             self.cap = cv.VideoCapture(self.source, cv.CAP_DSHOW)
         else:
-            self.cap = cv.VideoCapture(self.source)
+            source = self.source
+            if isinstance(source, str) and source.lower().startswith("rtsp://"):
+                if self.rtsp_tcp and "rtsp_transport=tcp" not in source:
+                    sep = "&" if "?" in source else "?"
+                    source = f"{source}{sep}rtsp_transport=tcp"
+                self.cap = cv.VideoCapture(source, cv.CAP_FFMPEG)
+            else:
+                self.cap = cv.VideoCapture(source)
         if not self.cap.isOpened():
             return
         setup_camera_props(self.cap, self.resolution)
@@ -350,7 +360,7 @@ def main():
     cam_thread = None
     if cfg["ui_camera_enabled"]:
         cam_source = cfg["ui_camera_url"] if cfg["ui_camera_url"] else cfg["ui_camera_index"]
-        cam_thread = CameraThread(cam_source, cfg["ui_camera_resolution"])
+        cam_thread = CameraThread(cam_source, cfg["ui_camera_resolution"], cfg["rtsp_tcp"])
         cam_thread.start()
 
     cmd_queue = queue.Queue()

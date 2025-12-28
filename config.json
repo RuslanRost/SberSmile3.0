@@ -27,5 +27,6 @@
   "stream_http_host": "127.0.0.1",
   "stream_http_port": 8080,
   "stream_http_resolution": [0, 0],
-  "stream_http_jpeg_quality": 80
+  "stream_http_jpeg_quality": 80,
+  "rtsp_tcp": true
 }
