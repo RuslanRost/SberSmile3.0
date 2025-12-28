@@ -47,7 +47,18 @@ if not exist "venv\Scripts\python.exe" (
 REM 5) Install dependencies
 echo Installing dependencies...
 .\venv\Scripts\python -m pip install --upgrade pip wheel
+if errorlevel 1 goto :error
 .\venv\Scripts\python -m pip install -r requirements.txt
+if errorlevel 1 goto :error
 .\venv\Scripts\python -m pip install --no-cache-dir --no-build-isolation dlib==19.24.0
+if errorlevel 1 goto :error
+
+echo Setup completed successfully.
+goto :eof
+
+:error
+echo.
+echo Setup failed. Check the output above.
+pause
 
 endlocal
