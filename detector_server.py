@@ -93,12 +93,17 @@ def open_video_source(source, use_tcp):
         for url in candidates:
             cap = cv.VideoCapture(url, cv.CAP_FFMPEG)
             if cap.isOpened():
-                print(f"RTSP opened: {url}")
+                print(f"RTSP opened (FFMPEG): {url}")
                 return cap
-        print("Failed RTSP URLs:")
+        print("FFMPEG failed, trying auto backend...")
+        cap = cv.VideoCapture(source)
+        if cap.isOpened():
+            print(f"RTSP opened (auto): {source}")
+            return cap
+        print("Failed RTSP URLs (FFMPEG):")
         for url in candidates:
             print(f"  {url}")
-        return cv.VideoCapture(source, cv.CAP_FFMPEG)
+        return cap
     return cv.VideoCapture(source)
 
 
