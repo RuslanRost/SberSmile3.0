@@ -36,6 +36,9 @@ DEFAULT_CONFIG = {
     "stream_http_resolution": [0, 0],
     "stream_http_jpeg_quality": 80,
     "rtsp_tcp": True,
+    "warmup_frames": 30,
+    "log_fps": True,
+    "fps_interval_sec": 5.0,
 }
 
 
@@ -67,6 +70,9 @@ def load_config(path: Path):
     cfg["stream_http_resolution"] = tuple(int(x) for x in cfg["stream_http_resolution"])
     cfg["stream_http_jpeg_quality"] = int(cfg["stream_http_jpeg_quality"])
     cfg["rtsp_tcp"] = bool(cfg["rtsp_tcp"])
+    cfg["warmup_frames"] = int(cfg["warmup_frames"])
+    cfg["log_fps"] = bool(cfg["log_fps"])
+    cfg["fps_interval_sec"] = float(cfg["fps_interval_sec"])
     return cfg
 
 
@@ -145,6 +151,9 @@ def main():
     stream_http_port = cfg["stream_http_port"]
     stream_http_resolution = cfg["stream_http_resolution"]
     stream_http_jpeg_quality = cfg["stream_http_jpeg_quality"]
+    warmup_frames = max(0, cfg["warmup_frames"])
+    log_fps = cfg["log_fps"]
+    fps_interval_sec = max(1.0, cfg["fps_interval_sec"])
 
     detector = dlib.get_frontal_face_detector()
     predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
@@ -226,6 +235,8 @@ def main():
             return False
 
     frame_idx = 0
+    fps_start = time()
+    fps_frames = 0
     last_smile = False
     debounced_smiling = False
     raw_smile_started_at = None
@@ -241,6 +252,19 @@ def main():
         frame = np.ascontiguousarray(frame, dtype=np.uint8)
         with frame_lock:
             latest_frame = frame
+
+        if log_fps:
+            fps_frames += 1
+            now_fps = time()
+            if now_fps - fps_start >= fps_interval_sec:
+                fps = fps_frames / max(1e-6, now_fps - fps_start)
+                print(f"Camera FPS: {fps:.1f}")
+                fps_start = now_fps
+                fps_frames = 0
+
+        if warmup_frames > 0:
+            warmup_frames -= 1
+            continue
 
         if frame_idx % detect_every_n == 0:
             h, w = frame.shape[:2]
