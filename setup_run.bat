@@ -48,11 +48,19 @@ REM 5) Install dependencies
 echo Installing dependencies...
 .\venv\Scripts\python -m pip install --upgrade pip wheel
 if errorlevel 1 goto :error
-.\venv\Scripts\python -m pip install -r requirements.txt
-if errorlevel 1 goto :error
+
+REM Install a compatible CMake first
 .\venv\Scripts\python -m pip install cmake==3.26.4
 if errorlevel 1 goto :error
 set "PATH=%SCRIPT_DIR%venv\Scripts;%PATH%"
+
+REM Install requirements except dlib to avoid build isolation issues
+set "REQ_TMP=%TEMP%\\requirements-nodlib.txt"
+findstr /V /I "dlib" requirements.txt > "%REQ_TMP%"
+.\venv\Scripts\python -m pip install -r "%REQ_TMP%"
+if errorlevel 1 goto :error
+
+REM Install dlib with no build isolation so it sees cmake/numpy
 .\venv\Scripts\python -m pip install --no-cache-dir --no-build-isolation dlib==19.24.0
 if errorlevel 1 goto :error
 
