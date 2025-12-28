@@ -23,14 +23,30 @@ if errorlevel 1 (
   echo Visual C++ Build Tools found.
 )
 
-REM 2) Ensure Python 3.10 is installed (uses py launcher)
+REM 2) Ensure CMake is installed (from cmake.org)
+cmake --version >nul 2>&1
+if errorlevel 1 (
+  echo Installing CMake from cmake.org...
+  set "CMAKE_VER=3.26.4"
+  set "CMAKE_EXE=%TEMP%\cmake-%CMAKE_VER%-windows-x86_64.msi"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri https://github.com/Kitware/CMake/releases/download/v%CMAKE_VER%/cmake-%CMAKE_VER%-windows-x86_64.msi -OutFile '%CMAKE_EXE%'"
+  msiexec /i "%CMAKE_EXE%" /qn ADD_CMAKE_TO_PATH=System
+)
+cmake --version >nul 2>&1
+if errorlevel 1 (
+  echo CMake installation failed or not in PATH. Please install from https://cmake.org/download/ and reopen the terminal.
+  pause
+  goto :eof
+)
+
+REM 3) Ensure Python 3.10 is installed (uses py launcher)
 py -3.10 -V >nul 2>&1
 if errorlevel 1 (
   echo Installing Python 3.10 via winget...
   winget install --id Python.Python.3.10 --accept-source-agreements --accept-package-agreements --silent
 )
 
-REM 3) Sync repository (pull latest)
+REM 4) Sync repository (pull latest)
 if exist ".git" (
   echo Pulling latest changes...
   git pull
@@ -38,21 +54,16 @@ if exist ".git" (
   echo Warning: .git not found, skipping git pull.
 )
 
-REM 4) Create venv with Python 3.10
+REM 5) Create venv with Python 3.10
 if not exist "venv\Scripts\python.exe" (
   echo Creating venv...
   py -3.10 -m venv venv
 )
 
-REM 5) Install dependencies
+REM 6) Install dependencies
 echo Installing dependencies...
 .\venv\Scripts\python -m pip install --upgrade pip wheel
 if errorlevel 1 goto :error
-
-REM Install a compatible CMake first
-.\venv\Scripts\python -m pip install cmake==3.26.4
-if errorlevel 1 goto :error
-set "PATH=%SCRIPT_DIR%venv\Scripts;%PATH%"
 
 REM Install requirements except dlib to avoid build isolation issues
 set "REQ_TMP=%TEMP%\\requirements-nodlib.txt"
