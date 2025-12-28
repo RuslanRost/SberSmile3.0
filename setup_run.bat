@@ -29,7 +29,8 @@ if errorlevel 1 (
   echo Installing CMake from cmake.org...
   set "CMAKE_VER=3.26.4"
   set "CMAKE_EXE=%TEMP%\cmake-%CMAKE_VER%-windows-x86_64.msi"
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri https://github.com/Kitware/CMake/releases/download/v%CMAKE_VER%/cmake-%CMAKE_VER%-windows-x86_64.msi -OutFile '%CMAKE_EXE%'" || (
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri https://github.com/Kitware/CMake/releases/download/v%CMAKE_VER%/cmake-%CMAKE_VER%-windows-x86_64.msi -OutFile '%CMAKE_EXE%'"
+  if errorlevel 1 (
     echo Download failed, trying winget...
     winget install --id Kitware.CMake --accept-source-agreements --accept-package-agreements --silent
     goto :cmake_check
