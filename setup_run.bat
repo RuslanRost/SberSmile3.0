@@ -50,6 +50,9 @@ echo Installing dependencies...
 if errorlevel 1 goto :error
 .\venv\Scripts\python -m pip install -r requirements.txt
 if errorlevel 1 goto :error
+.\venv\Scripts\python -m pip install cmake==3.26.4
+if errorlevel 1 goto :error
+set "PATH=%SCRIPT_DIR%venv\Scripts;%PATH%"
 .\venv\Scripts\python -m pip install --no-cache-dir --no-build-isolation dlib==19.24.0
 if errorlevel 1 goto :error
 
