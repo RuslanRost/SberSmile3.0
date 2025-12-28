@@ -81,6 +81,8 @@ findstr /V /I "dlib" requirements.txt > "%REQ_TMP%"
 if errorlevel 1 goto :error
 
 REM Install dlib with no build isolation so it sees cmake/numpy
+set "PATH=%SCRIPT_DIR%venv\Scripts;%PATH%"
+set "CMAKE_POLICY_VERSION_MINIMUM=3.5"
 .\venv\Scripts\python -m pip install --no-cache-dir --no-build-isolation dlib==19.24.0
 if errorlevel 1 goto :error
 
