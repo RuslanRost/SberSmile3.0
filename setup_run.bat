@@ -29,7 +29,7 @@ if errorlevel 1 (
   echo Installing CMake from cmake.org...
   set "CMAKE_VER=3.26.4"
   set "CMAKE_EXE=%TEMP%\cmake-%CMAKE_VER%-windows-x86_64.msi"
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri https://cmake.org/files/v3.26/cmake-%CMAKE_VER%-windows-x86_64.msi -OutFile '%CMAKE_EXE%'"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri https://cmake.org/files/v3.26/cmake-3.26.4-windows-x86_64.msi -OutFile '%CMAKE_EXE%'"
   if errorlevel 1 (
     echo Download failed, trying winget...
     winget install --id Kitware.CMake --accept-source-agreements --accept-package-agreements --silent
@@ -38,6 +38,9 @@ if errorlevel 1 (
   msiexec /i "%CMAKE_EXE%" /qn ADD_CMAKE_TO_PATH=System
 )
 :cmake_check
+REM Refresh PATH for current session (winget/msi may not update it yet)
+for /f "delims=" %%P in ('where cmake 2^>nul') do set "CMAKE_PATH=%%~dpP"
+if defined CMAKE_PATH set "PATH=%CMAKE_PATH%;%PATH%"
 cmake --version >nul 2>&1
 if errorlevel 1 (
   echo CMake installation failed or not in PATH. Please install from https://cmake.org/download/ and reopen the terminal.
