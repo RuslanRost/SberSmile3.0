@@ -1,4 +1,5 @@
 import json
+import os
 import socket
 import struct
 import threading
@@ -108,7 +109,11 @@ def choose_best_face(faces, gray_shape, center_weight, area_weight):
 
 
 def main():
-    cfg = load_config(Path("config.json"))
+    cfg_path = Path("config.json").resolve()
+    cfg = load_config(cfg_path)
+    print(f"Working dir: {os.getcwd()}")
+    print(f"Config path: {cfg_path}")
+    print(f"camera_url: {cfg['camera_url']}")
     lip_jaw_ratio_thresh = cfg["lip_jaw_ratio_thresh"]
     mouth_opening_ratio_thresh = cfg["mouth_opening_ratio_thresh"]
     face_center_weight = cfg["face_center_weight"]
