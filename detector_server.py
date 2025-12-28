@@ -139,6 +139,7 @@ def main():
     print(f"Working dir: {os.getcwd()}")
     print(f"Config path: {cfg_path}")
     print(f"camera_url: {cfg['camera_url']}")
+    print(f"log_fps: {log_fps}, fps_interval_sec: {fps_interval_sec}, warmup_frames: {warmup_frames}")
     lip_jaw_ratio_thresh = cfg["lip_jaw_ratio_thresh"]
     mouth_opening_ratio_thresh = cfg["mouth_opening_ratio_thresh"]
     face_center_weight = cfg["face_center_weight"]
@@ -258,7 +259,7 @@ def main():
             now_fps = time()
             if now_fps - fps_start >= fps_interval_sec:
                 fps = fps_frames / max(1e-6, now_fps - fps_start)
-                print(f"Camera FPS: {fps:.1f}")
+                print(f"Camera FPS: {fps:.1f}", flush=True)
                 fps_start = now_fps
                 fps_frames = 0
 
