@@ -29,6 +29,7 @@
   "stream_http_resolution": [0, 0],
   "stream_http_jpeg_quality": 80,
   "rtsp_tcp": true,
+  "rtsp_backend": "auto",
   "warmup_frames": 30,
   "log_fps": true,
   "fps_interval_sec": 5.0

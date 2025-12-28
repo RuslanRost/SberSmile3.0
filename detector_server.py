@@ -36,6 +36,7 @@ DEFAULT_CONFIG = {
     "stream_http_resolution": [0, 0],
     "stream_http_jpeg_quality": 80,
     "rtsp_tcp": True,
+    "rtsp_backend": "auto",
     "warmup_frames": 30,
     "log_fps": True,
     "fps_interval_sec": 5.0,
@@ -70,6 +71,7 @@ def load_config(path: Path):
     cfg["stream_http_resolution"] = tuple(int(x) for x in cfg["stream_http_resolution"])
     cfg["stream_http_jpeg_quality"] = int(cfg["stream_http_jpeg_quality"])
     cfg["rtsp_tcp"] = bool(cfg["rtsp_tcp"])
+    cfg["rtsp_backend"] = str(cfg.get("rtsp_backend", "auto")).lower()
     cfg["warmup_frames"] = int(cfg["warmup_frames"])
     cfg["log_fps"] = bool(cfg["log_fps"])
     cfg["fps_interval_sec"] = float(cfg["fps_interval_sec"])
@@ -86,7 +88,7 @@ def setup_camera_props(cam, resolution):
         pass
 
 
-def open_video_source(source, use_tcp):
+def open_video_source(source, use_tcp, backend):
     if isinstance(source, str) and source.lower().startswith("rtsp://"):
         candidates = []
         if use_tcp and "rtsp_transport=tcp" not in source:
@@ -97,17 +99,20 @@ def open_video_source(source, use_tcp):
             candidates.append(source.rstrip("/"))
         else:
             candidates.append(source + "/")
-        for url in candidates:
-            cap = cv.VideoCapture(url, cv.CAP_FFMPEG)
+        try_ffmpeg = backend == "ffmpeg"
+        try_auto = backend == "auto"
+        if try_auto:
+            cap = cv.VideoCapture(source)
             if cap.isOpened():
-                print(f"RTSP opened (FFMPEG): {url}")
+                print(f"RTSP opened (auto): {source}")
                 return cap
-        print("FFMPEG failed, trying auto backend...")
-        cap = cv.VideoCapture(source)
-        if cap.isOpened():
-            print(f"RTSP opened (auto): {source}")
-            return cap
-        print("Failed RTSP URLs (FFMPEG):")
+        if try_ffmpeg or not try_auto:
+            for url in candidates:
+                cap = cv.VideoCapture(url, cv.CAP_FFMPEG)
+                if cap.isOpened():
+                    print(f"RTSP opened (FFMPEG): {url}")
+                    return cap
+        print("Failed RTSP URLs:")
         for url in candidates:
             print(f"  {url}")
         return cap
@@ -160,7 +165,7 @@ def main():
     predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 
     cam_source = cfg["camera_url"] if cfg["camera_url"] else cfg["camera_index"]
-    cap = open_video_source(cam_source, cfg["rtsp_tcp"])
+    cap = open_video_source(cam_source, cfg["rtsp_tcp"], cfg["rtsp_backend"])
     if not cap.isOpened():
         raise RuntimeError("Cannot open camera")
     cap.set(cv.CAP_PROP_CONVERT_RGB, 1)

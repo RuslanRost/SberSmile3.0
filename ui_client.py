@@ -21,6 +21,7 @@ DEFAULT_CONFIG = {
     "tcp_host": "127.0.0.1",
     "tcp_port": 5005,
     "rtsp_tcp": True,
+    "rtsp_backend": "auto",
 }
 
 
@@ -42,6 +43,7 @@ def load_config(path: Path):
     cfg["tcp_host"] = str(cfg["tcp_host"])
     cfg["tcp_port"] = int(cfg["tcp_port"])
     cfg["rtsp_tcp"] = bool(cfg["rtsp_tcp"])
+    cfg["rtsp_backend"] = str(cfg.get("rtsp_backend", "auto")).lower()
     return cfg
 
 
@@ -181,10 +183,11 @@ class VideoPlayerThread:
 
 
 class CameraThread:
-    def __init__(self, source, resolution, rtsp_tcp):
+    def __init__(self, source, resolution, rtsp_tcp, rtsp_backend):
         self.source = source
         self.resolution = resolution
         self.rtsp_tcp = rtsp_tcp
+        self.rtsp_backend = rtsp_backend
         self.cap = None
         self.lock = threading.Lock()
         self.latest_frame = None
@@ -209,12 +212,13 @@ class CameraThread:
                     candidates.append(source.rstrip("/"))
                 else:
                     candidates.append(source + "/")
-                for url in candidates:
-                    self.cap = cv.VideoCapture(url, cv.CAP_FFMPEG)
-                    if self.cap.isOpened():
-                        break
-                if not self.cap or not self.cap.isOpened():
+                if self.rtsp_backend == "auto":
                     self.cap = cv.VideoCapture(source)
+                if not self.cap or not self.cap.isOpened():
+                    for url in candidates:
+                        self.cap = cv.VideoCapture(url, cv.CAP_FFMPEG)
+                        if self.cap.isOpened():
+                            break
             else:
                 self.cap = cv.VideoCapture(source)
         if not self.cap.isOpened():
@@ -371,7 +375,12 @@ def main():
     cam_thread = None
     if cfg["ui_camera_enabled"]:
         cam_source = cfg["ui_camera_url"] if cfg["ui_camera_url"] else cfg["ui_camera_index"]
-        cam_thread = CameraThread(cam_source, cfg["ui_camera_resolution"], cfg["rtsp_tcp"])
+        cam_thread = CameraThread(
+            cam_source,
+            cfg["ui_camera_resolution"],
+            cfg["rtsp_tcp"],
+            cfg["rtsp_backend"],
+        )
         cam_thread.start()
 
     cmd_queue = queue.Queue()
