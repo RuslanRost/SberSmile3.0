@@ -41,6 +41,7 @@ if errorlevel 1 (
 REM Refresh PATH for current session (winget/msi may not update it yet)
 for /f "delims=" %%P in ('where cmake 2^>nul') do set "CMAKE_PATH=%%~dpP"
 if defined CMAKE_PATH set "PATH=%CMAKE_PATH%;%PATH%"
+if exist "C:\Program Files\CMake\bin\cmake.exe" set "PATH=C:\Program Files\CMake\bin;%PATH%"
 cmake --version >nul 2>&1
 if errorlevel 1 (
   echo CMake installation failed or not in PATH. Please install from https://cmake.org/download/ and reopen the terminal.
