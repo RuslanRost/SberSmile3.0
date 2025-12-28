@@ -200,10 +200,21 @@ class CameraThread:
         else:
             source = self.source
             if isinstance(source, str) and source.lower().startswith("rtsp://"):
+                candidates = []
                 if self.rtsp_tcp and "rtsp_transport=tcp" not in source:
                     sep = "&" if "?" in source else "?"
-                    source = f"{source}{sep}rtsp_transport=tcp"
-                self.cap = cv.VideoCapture(source, cv.CAP_FFMPEG)
+                    candidates.append(f"{source}{sep}rtsp_transport=tcp")
+                candidates.append(source)
+                if source.endswith("/"):
+                    candidates.append(source.rstrip("/"))
+                else:
+                    candidates.append(source + "/")
+                for url in candidates:
+                    self.cap = cv.VideoCapture(url, cv.CAP_FFMPEG)
+                    if self.cap.isOpened():
+                        break
+                if not self.cap or not self.cap.isOpened():
+                    self.cap = cv.VideoCapture(source)
             else:
                 self.cap = cv.VideoCapture(source)
         if not self.cap.isOpened():

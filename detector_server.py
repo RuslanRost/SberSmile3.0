@@ -82,10 +82,11 @@ def setup_camera_props(cam, resolution):
 
 def open_video_source(source, use_tcp):
     if isinstance(source, str) and source.lower().startswith("rtsp://"):
-        candidates = [source]
+        candidates = []
         if use_tcp and "rtsp_transport=tcp" not in source:
             sep = "&" if "?" in source else "?"
             candidates.append(f"{source}{sep}rtsp_transport=tcp")
+        candidates.append(source)
         if source.endswith("/"):
             candidates.append(source.rstrip("/"))
         else:
