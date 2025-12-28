@@ -5,6 +5,15 @@ REM Resolve script directory (repo root if run from there)
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
 
+REM 0) Ensure Git is installed
+where /q git.exe
+if errorlevel 1 (
+  echo Installing Git...
+  winget install --id Git.Git --accept-source-agreements --accept-package-agreements --silent
+) else (
+  echo Git found.
+)
+
 REM 1) Ensure Visual C++ Build Tools are installed (silent install)
 where /q cl.exe
 if errorlevel 1 (
@@ -21,20 +30,24 @@ if errorlevel 1 (
   winget install --id Python.Python.3.10 --accept-source-agreements --accept-package-agreements --silent
 )
 
-REM 3) Create venv with Python 3.10
+REM 3) Sync repository (pull latest)
+if exist ".git" (
+  echo Pulling latest changes...
+  git pull
+) else (
+  echo Warning: .git not found, skipping git pull.
+)
+
+REM 4) Create venv with Python 3.10
 if not exist "venv\Scripts\python.exe" (
   echo Creating venv...
   py -3.10 -m venv venv
 )
 
-REM 4) Install dependencies
+REM 5) Install dependencies
 echo Installing dependencies...
 .\venv\Scripts\python -m pip install --upgrade pip wheel
 .\venv\Scripts\python -m pip install -r requirements.txt
 .\venv\Scripts\python -m pip install --no-cache-dir --no-build-isolation dlib==19.24.0
-
-REM 5) Run the app
-echo Starting smile_detection.py...
-.\venv\Scripts\python smile_detection.py
 
 endlocal
