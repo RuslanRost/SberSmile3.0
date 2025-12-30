@@ -3,6 +3,7 @@ import queue
 import socket
 import struct
 import threading
+from datetime import datetime
 from pathlib import Path
 from time import monotonic, sleep
 
@@ -371,6 +372,14 @@ def main():
     active_playing = False
     smile_started_at = None
     pending_active = False
+    pending_smile_id = None
+    smile_count = 0
+    log_path = Path("smile_log.txt")
+
+    def log_event(message: str):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with log_path.open("a", encoding="utf-8") as log_file:
+            log_file.write(f"[{timestamp}] {message}\n")
 
     cam_thread = None
     if cfg["ui_camera_enabled"]:
@@ -408,7 +417,11 @@ def main():
         try:
             msg = cmd_queue.get_nowait()
             if msg.get("cmd") == "trigger":
-                pending_active = True
+                if not pending_active and not active_playing:
+                    smile_count += 1
+                    pending_smile_id = smile_count
+                    pending_active = True
+                    log_event(f"Smile #{smile_count} detected (trigger received)")
             elif msg.get("cmd") == "detect":
                 last_detect = msg.get("data")
         except queue.Empty:
@@ -466,6 +479,9 @@ def main():
                 active_player.set_source(chosen)
                 active_playing = True
                 pending_active = False
+                if pending_smile_id is not None:
+                    log_event(f"Active video started for Smile #{pending_smile_id}")
+                    pending_smile_id = None
 
     sock.close()
     idle_player.stop()
