@@ -1,5 +1,6 @@
 import json
 import queue
+import re
 import socket
 import struct
 import threading
@@ -373,8 +374,23 @@ def main():
     smile_started_at = None
     pending_active = False
     pending_smile_id = None
-    smile_count = 0
     log_path = Path("smile_log.txt")
+
+    def read_last_smile_id(path: Path) -> int:
+        if not path.exists():
+            return 0
+        last_id = 0
+        pattern = re.compile(r"Smile #(\d+)")
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                match = pattern.search(line)
+                if match:
+                    last_id = max(last_id, int(match.group(1)))
+        except Exception:
+            return 0
+        return last_id
+
+    smile_count = read_last_smile_id(log_path)
 
     def log_event(message: str):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -394,6 +410,16 @@ def main():
 
     cmd_queue = queue.Queue()
     last_detect = None
+    sock_lock = threading.Lock()
+
+    def send_cmd(message: dict):
+        payload = json.dumps(message).encode("utf-8")
+        header = struct.pack("!I", len(payload))
+        with sock_lock:
+            try:
+                sock.sendall(header + payload)
+            except OSError:
+                pass
 
     def receiver():
         while True:
@@ -470,6 +496,8 @@ def main():
         key = cv.waitKey(1) & 0xFF
         if key == ord('q') or key == 27:
             break
+        if key == ord('r'):
+            send_cmd({"cmd": "restart"})
 
         if pending_active and not active_playing and active_videos:
             _, _, idle_idx = idle_player.get_frame()

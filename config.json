@@ -32,5 +32,7 @@
   "rtsp_backend": "auto",
   "warmup_frames": 30,
   "log_fps": true,
-  "fps_interval_sec": 5.0
+  "fps_interval_sec": 5.0,
+  "restart_enabled": true,
+  "restart_interval_sec": 3600
 }

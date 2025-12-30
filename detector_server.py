@@ -40,6 +40,8 @@ DEFAULT_CONFIG = {
     "warmup_frames": 30,
     "log_fps": True,
     "fps_interval_sec": 5.0,
+    "restart_enabled": True,
+    "restart_interval_sec": 3600,
 }
 
 
@@ -75,6 +77,8 @@ def load_config(path: Path):
     cfg["warmup_frames"] = int(cfg["warmup_frames"])
     cfg["log_fps"] = bool(cfg["log_fps"])
     cfg["fps_interval_sec"] = float(cfg["fps_interval_sec"])
+    cfg["restart_enabled"] = bool(cfg["restart_enabled"])
+    cfg["restart_interval_sec"] = int(cfg["restart_interval_sec"])
     return cfg
 
 
@@ -155,9 +159,12 @@ def main():
     stream_http_port = cfg["stream_http_port"]
     stream_http_resolution = cfg["stream_http_resolution"]
     stream_http_jpeg_quality = cfg["stream_http_jpeg_quality"]
-    warmup_frames = max(0, cfg["warmup_frames"])
+    initial_warmup_frames = max(0, cfg["warmup_frames"])
+    warmup_frames = initial_warmup_frames
     log_fps = cfg["log_fps"]
     fps_interval_sec = max(1.0, cfg["fps_interval_sec"])
+    restart_enabled = cfg["restart_enabled"]
+    restart_interval_sec = max(60, cfg["restart_interval_sec"])
     print(f"camera_url: {cfg['camera_url']}")
     print(f"log_fps: {log_fps}, fps_interval_sec: {fps_interval_sec}, warmup_frames: {warmup_frames}")
 
@@ -165,12 +172,18 @@ def main():
     predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 
     cam_source = cfg["camera_url"] if cfg["camera_url"] else cfg["camera_index"]
-    cap = open_video_source(cam_source, cfg["rtsp_tcp"], cfg["rtsp_backend"])
-    if not cap.isOpened():
+    def open_camera():
+        cam = open_video_source(cam_source, cfg["rtsp_tcp"], cfg["rtsp_backend"])
+        if not cam.isOpened():
+            return None
+        cam.set(cv.CAP_PROP_CONVERT_RGB, 1)
+        cam.set(cv.CAP_PROP_FOURCC, cv.VideoWriter_fourcc(*'MJPG'))
+        setup_camera_props(cam, cfg["camera_capture_resolution"])
+        return cam
+
+    cap = open_camera()
+    if not cap:
         raise RuntimeError("Cannot open camera")
-    cap.set(cv.CAP_PROP_CONVERT_RGB, 1)
-    cap.set(cv.CAP_PROP_FOURCC, cv.VideoWriter_fourcc(*'MJPG'))
-    setup_camera_props(cap, cfg["camera_capture_resolution"])
 
     host = cfg["tcp_host"]
     port = cfg["tcp_port"]
@@ -234,6 +247,7 @@ def main():
 
     conn, addr = server.accept()
     print(f"UI connected from {addr}")
+    conn.settimeout(0.5)
 
     def send_msg(data):
         payload = json.dumps(data).encode("utf-8")
@@ -276,6 +290,41 @@ def main():
 
     threading.Thread(target=capture_loop, daemon=True).start()
 
+    restart_event = threading.Event()
+
+    def recvall(sock, size):
+        data = b""
+        while len(data) < size:
+            try:
+                chunk = sock.recv(size - len(data))
+            except OSError:
+                return None
+            if not chunk:
+                return None
+            data += chunk
+        return data
+
+    def receiver_loop():
+        while not stop_event.is_set():
+            header = recvall(conn, 4)
+            if not header:
+                sleep(0.1)
+                continue
+            msg_len = struct.unpack("!I", header)[0]
+            payload = recvall(conn, msg_len)
+            if not payload:
+                continue
+            try:
+                msg = json.loads(payload.decode("utf-8"))
+            except Exception:
+                continue
+            if msg.get("cmd") == "restart":
+                restart_event.set()
+
+    threading.Thread(target=receiver_loop, daemon=True).start()
+
+    last_restart = time()
+
     last_processed_idx = -1
     while True:
         with frame_lock:
@@ -285,6 +334,35 @@ def main():
             sleep(0.002)
             continue
         last_processed_idx = frame_idx
+
+        if restart_enabled and (time() - last_restart) >= restart_interval_sec:
+            restart_event.set()
+
+        if restart_event.is_set():
+            print("Restarting detector...", flush=True)
+            restart_event.clear()
+            last_restart = time()
+            warmup_frames = initial_warmup_frames
+            debounced_smiling = False
+            raw_smile_started_at = None
+            raw_not_smile_started_at = None
+            smile_started_at = None
+            sent_active = False
+            stop_event.set()
+            sleep(0.2)
+            cap.release()
+            stop_event.clear()
+            latest_frame = None
+            latest_idx = -1
+            fps_start = time()
+            fps_frames = 0
+            cap = open_camera()
+            if not cap:
+                print("Camera reopen failed, retrying...", flush=True)
+                sleep(1.0)
+                continue
+            threading.Thread(target=capture_loop, daemon=True).start()
+            continue
 
         if warmup_frames > 0:
             warmup_frames -= 1
