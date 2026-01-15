@@ -3,6 +3,7 @@ import queue
 import re
 import socket
 import struct
+import subprocess
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -495,6 +496,10 @@ def main():
 
         key = cv.waitKey(1) & 0xFF
         if key == ord('q') or key == 27:
+            break
+        if key == ord('r'):
+            log_event("Manual restart requested")
+            subprocess.Popen(["cmd", "/c", "run_dual.bat"])
             break
         if key == ord('r'):
             send_cmd({"cmd": "restart"})
